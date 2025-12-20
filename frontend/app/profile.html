@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - WaterIoT</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/app/dashboard.html" class="logo">💧 WaterIoT</a>
+                <ul class="nav-links"></ul>
+            </nav>
+        </div>
+    </header>
+
+    <main style="padding: 2rem 0;">
+        <div class="container" style="max-width: 800px;">
+            <h1 style="margin-bottom: 2rem;">My Profile</h1>
+
+            <!-- User Info Card -->
+            <div class="card">
+                <div class="card-header">Account Information</div>
+                <div id="userInfo"></div>
+            </div>
+
+            <!-- Change Password Card -->
+            <div class="card">
+                <div class="card-header">Change Password</div>
+                <div id="alert-container"></div>
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" id="currentPassword" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <input type="password" id="newPassword" class="form-control" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 WaterIoT. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/js/app.js"></script>
+    <script>
+        function loadUserInfo() {
+            const userInfo = auth.getUserInfo();
+            const container = document.getElementById('userInfo');
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Email</div>
+                        <div style="font-weight: 500;">${userInfo.email}</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Role</div>
+                        <div style="font-weight: 500;">${userInfo.role}</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Name</div>
+                        <div style="font-weight: 500;">${userInfo.name || 'Not set'}</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">User ID</div>
+                        <div style="font-weight: 500;">${userInfo.id}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const alertContainer = document.getElementById('alert-container');
+            
+            if (newPassword !== confirmPassword) {
+                alertContainer.innerHTML = '<div class="alert alert-error">New passwords do not match</div>';
+                return;
+            }
+            
+            alertContainer.innerHTML = '<div class="alert alert-info">Password change functionality would connect to API endpoint</div>';
+            
+            // In a real implementation:
+            // await apiRequest('/users/change-password', {
+            //     method: 'PUT',
+            //     body: JSON.stringify({ currentPassword, newPassword })
+            // });
+        });
+
+        loadUserInfo();
+    </script>
+</body>
+</html>

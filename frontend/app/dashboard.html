@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - WaterIoT</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/app/dashboard.html" class="logo">💧 WaterIoT</a>
+                <ul class="nav-links"></ul>
+            </nav>
+        </div>
+    </header>
+
+    <main style="padding: 2rem 0;">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1>Dashboard</h1>
+                <div>
+                    <span class="badge badge-info" id="alertBadge">0 Alerts</span>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-4" id="kpiCards">
+                <div class="card">
+                    <div class="text-muted" style="font-size: 0.875rem;">Today's Usage</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);" id="todayUsage">-</div>
+                    <div class="text-muted" style="font-size: 0.875rem;">Liters</div>
+                </div>
+                <div class="card">
+                    <div class="text-muted" style="font-size: 0.875rem;">This Week</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--success-color);" id="weekUsage">-</div>
+                    <div class="text-muted" style="font-size: 0.875rem;">Liters</div>
+                </div>
+                <div class="card">
+                    <div class="text-muted" style="font-size: 0.875rem;">Active Devices</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--info-color);" id="activeDevices">-</div>
+                    <div class="text-muted" style="font-size: 0.875rem;">Devices</div>
+                </div>
+                <div class="card">
+                    <div class="text-muted" style="font-size: 0.875rem;">Unread Alerts</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--warning-color);" id="unreadAlerts">-</div>
+                    <div class="text-muted" style="font-size: 0.875rem;">Alerts</div>
+                </div>
+            </div>
+
+            <div class="grid grid-2">
+                <!-- Devices -->
+                <div>
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>My Devices</span>
+                            <button class="btn btn-small btn-primary" onclick="showAddDeviceModal()" id="addDeviceBtn" style="display: none;">+ Add Device</button>
+                        </div>
+                        <div id="devicesList"></div>
+                    </div>
+                </div>
+
+                <!-- Alerts -->
+                <div>
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Recent Alerts</span>
+                            <button class="btn btn-small btn-primary" onclick="markAllAlertsRead()">Mark All Read</button>
+                        </div>
+                        <div id="alertsList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Command Modal -->
+    <div id="commandModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div class="card" style="max-width: 500px; width: 90%; margin: 0;">
+            <div class="card-header">Send Command</div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div id="addDeviceModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div class="card" style="max-width: 600px; width: 90%; margin: 0;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Register New Device</span>
+                <button class="btn btn-small" onclick="closeAddDeviceModal()" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="addDeviceForm" onsubmit="handleAddDevice(event)" style="padding: 1.5rem;">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Device UID *</label>
+                    <input type="text" name="deviceUid" required placeholder="e.g., DEV-2024-001" 
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                    <small class="text-muted">Unique identifier from device QR code or label</small>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Device Name *</label>
+                    <input type="text" name="name" required placeholder="e.g., Kitchen Faucet Sensor" 
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Location</label>
+                    <input type="text" name="location" placeholder="e.g., Kitchen, Building A" 
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                </div>
+                
+                <div class="grid grid-2" style="margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Model</label>
+                        <input type="text" name="model" placeholder="e.g., WF-100" 
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Firmware Version</label>
+                        <input type="text" name="firmwareVersion" placeholder="e.g., 1.2.3" 
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Installation Date</label>
+                    <input type="date" name="installDate" 
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                </div>
+                
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-outline" onclick="closeAddDeviceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Register Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 WaterIoT. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/js/app.js"></script>
+    <script>
+        let devices = [];
+        let alerts = [];
+
+        async function loadDashboard() {
+            try {
+                // Check if user is admin and show add device button
+                const userInfo = auth.getUserInfo();
+                if (userInfo && userInfo.role === 'ADMIN') {
+                    document.getElementById('addDeviceBtn').style.display = 'block';
+                }
+                
+                // Load devices
+                devices = await apiRequest('/devices');
+                renderDevices();
+                
+                // Load alerts
+                alerts = await apiRequest('/alerts?limit=10');
+                renderAlerts();
+                
+                // Load KPIs
+                await loadKPIs();
+                
+                // Load unread alert count
+                const unreadData = await apiRequest('/alerts/unread-count');
+                document.getElementById('unreadAlerts').textContent = unreadData.count;
+                document.getElementById('alertBadge').textContent = `${unreadData.count} Alerts`;
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        async function loadKPIs() {
+            const now = new Date();
+            const todayStart = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+            const weekStart = new Date(now.setDate(now.getDate() - 7)).toISOString();
+            const nowStr = new Date().toISOString();
+            
+            let totalToday = 0;
+            let totalWeek = 0;
+            let activeCount = 0;
+            
+            for (const device of devices) {
+                if (device.status === 'ACTIVE') activeCount++;
+                
+                try {
+                    const todayData = await apiRequest(`/devices/${device.id}/consumption?from=${todayStart}&to=${nowStr}`);
+                    totalToday += parseFloat(todayData.totalLiters || 0);
+                    
+                    const weekData = await apiRequest(`/devices/${device.id}/consumption?from=${weekStart}&to=${nowStr}`);
+                    totalWeek += parseFloat(weekData.totalLiters || 0);
+                } catch (e) {
+                    console.error('Error fetching consumption for device', device.id, e);
+                }
+            }
+            
+            document.getElementById('todayUsage').textContent = totalToday.toFixed(1);
+            document.getElementById('weekUsage').textContent = totalWeek.toFixed(1);
+            document.getElementById('activeDevices').textContent = activeCount;
+        }
+
+        function renderDevices() {
+            const container = document.getElementById('devicesList');
+            
+            if (devices.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No devices assigned</p>';
+                return;
+            }
+            
+            container.innerHTML = devices.map(device => `
+                <div style="border-bottom: 1px solid var(--border-color); padding: 1rem 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                        <div>
+                            <strong>${device.name}</strong>
+                            ${getStatusBadge(device.status)}
+                        </div>
+                        <button class="btn btn-small btn-primary" onclick="viewDevice(${device.id})">View</button>
+                    </div>
+                    <div class="text-muted" style="font-size: 0.875rem;">
+                        ${device.location || 'No location'} • Last seen: ${formatDateTime(device.lastSeenAt)}
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="btn btn-small btn-success" onclick="sendCommand(${device.id}, 'VALVE_OPEN')">Open</button>
+                        <button class="btn btn-small btn-danger" onclick="sendCommand(${device.id}, 'VALVE_CLOSE')">Close</button>
+                        <button class="btn btn-small btn-warning" onclick="sendCommand(${device.id}, 'SHUT_OFF')">Shut Off</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAlerts() {
+            const container = document.getElementById('alertsList');
+            
+            if (alerts.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No alerts</p>';
+                return;
+            }
+            
+            container.innerHTML = alerts.slice(0, 5).map(alert => `
+                <div style="border-bottom: 1px solid var(--border-color); padding: 1rem 0; ${alert.isRead ? 'opacity: 0.6;' : ''}">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        ${getSeverityBadge(alert.severity)}
+                        <span class="text-muted" style="font-size: 0.875rem;">${formatDateTime(alert.timestamp)}</span>
+                    </div>
+                    <div style="margin-bottom: 0.5rem;">${alert.message}</div>
+                    ${!alert.isRead ? `<button class="btn btn-small btn-outline" onclick="markAlertRead(${alert.id})">Mark Read</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function sendCommand(deviceId, commandType) {
+            try {
+                await apiRequest(`/devices/${deviceId}/commands`, {
+                    method: 'POST',
+                    body: JSON.stringify({ type: commandType, payload: {} })
+                });
+                showAlert('Command sent successfully', 'success');
+            } catch (error) {
+                showAlert('Failed to send command: ' + error.message, 'error');
+            }
+        }
+
+        function viewDevice(deviceId) {
+            window.location.href = `/app/device.html?id=${deviceId}`;
+        }
+
+        async function markAlertRead(alertId) {
+            try {
+                await apiRequest(`/alerts/${alertId}/read`, { method: 'PUT' });
+                await loadDashboard();
+            } catch (error) {
+                showAlert('Failed to mark alert as read', 'error');
+            }
+        }
+
+        async function markAllAlertsRead() {
+            try {
+                await apiRequest('/alerts/read-all', { method: 'PUT' });
+                await loadDashboard();
+                showAlert('All alerts marked as read', 'success');
+            } catch (error) {
+                showAlert('Failed to mark alerts as read', 'error');
+            }
+        }
+
+        function showAddDeviceModal() {
+            document.getElementById('addDeviceModal').style.display = 'flex';
+        }
+
+        function closeAddDeviceModal() {
+            document.getElementById('addDeviceModal').style.display = 'none';
+            document.getElementById('addDeviceForm').reset();
+        }
+
+        async function handleAddDevice(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const deviceData = {
+                deviceUid: formData.get('deviceUid'),
+                name: formData.get('name'),
+                location: formData.get('location') || null,
+                model: formData.get('model') || null,
+                firmwareVersion: formData.get('firmwareVersion') || null,
+                installDate: formData.get('installDate') || null,
+                status: 'INACTIVE'
+            };
+
+            try {
+                await apiRequest('/devices/register', {
+                    method: 'POST',
+                    body: JSON.stringify(deviceData)
+                });
+                showAlert('Device registered successfully', 'success');
+                closeAddDeviceModal();
+                await loadDashboard();
+            } catch (error) {
+                showAlert('Failed to register device: ' + error.message, 'error');
+            }
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+    </script>
+</body>
+</html>

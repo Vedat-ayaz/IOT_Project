@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Details - WaterIoT</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/app/dashboard.html" class="logo">💧 WaterIoT</a>
+                <ul class="nav-links"></ul>
+            </nav>
+        </div>
+    </header>
+
+    <main style="padding: 2rem 0;">
+        <div class="container">
+            <div style="margin-bottom: 2rem;">
+                <a href="/app/dashboard.html" style="color: var(--primary-color); text-decoration: none;">&larr; Back to Dashboard</a>
+            </div>
+
+            <!-- Device Info -->
+            <div class="card" id="deviceInfo">
+                <div class="spinner"></div>
+            </div>
+
+            <!-- Quick Commands -->
+            <div class="card">
+                <div class="card-header">Quick Commands</div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn btn-success" onclick="sendCommand('VALVE_OPEN')">Open Valve</button>
+                    <button class="btn btn-danger" onclick="sendCommand('VALVE_CLOSE')">Close Valve</button>
+                    <button class="btn btn-warning" onclick="sendCommand('SHUT_OFF')">Emergency Shut Off</button>
+                    <button class="btn btn-primary" onclick="showSetFlowModal()">Set Flow Rate</button>
+                </div>
+            </div>
+
+            <div class="grid grid-2">
+                <!-- Recent Readings -->
+                <div class="card">
+                    <div class="card-header">Recent Readings</div>
+                    <div id="readingsList"></div>
+                </div>
+
+                <!-- Command History -->
+                <div class="card">
+                    <div class="card-header">Command History</div>
+                    <div id="commandsList"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Set Flow Modal -->
+    <div id="setFlowModal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+        <div class="card" style="max-width: 400px; width: 90%; margin: 0;">
+            <div class="card-header">Set Flow Rate</div>
+            <div class="form-group">
+                <label class="form-label">Flow Rate (L/min)</label>
+                <input type="number" id="flowRateInput" class="form-control" step="0.1" min="0" max="20" value="5">
+                <input type="range" id="flowRateSlider" min="0" max="20" step="0.1" value="5" style="width: 100%; margin-top: 0.5rem;">
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-primary" onclick="sendFlowCommand()">Send</button>
+                <button class="btn btn-secondary" onclick="hideSetFlowModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 WaterIoT. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/js/app.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('id');
+        let device = null;
+
+        async function loadDevice() {
+            try {
+                device = await apiRequest(`/devices/${deviceId}`);
+                renderDeviceInfo();
+                
+                await loadReadings();
+                await loadCommands();
+            } catch (error) {
+                console.error('Error loading device:', error);
+                showAlert('Failed to load device', 'error');
+            }
+        }
+
+        function renderDeviceInfo() {
+            const container = document.getElementById('deviceInfo');
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <h1 style="margin-bottom: 0.5rem;">${device.name}</h1>
+                        <p class="text-muted">${device.deviceUid} • ${device.location || 'No location'}</p>
+                    </div>
+                    ${getStatusBadge(device.status)}
+                </div>
+                <div class="grid grid-3" style="margin-top: 1.5rem;">
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Model</div>
+                        <div style="font-weight: 500;">${device.model || 'N/A'}</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Firmware</div>
+                        <div style="font-weight: 500;">${device.firmwareVersion || 'N/A'}</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Last Seen</div>
+                        <div style="font-weight: 500;">${formatDateTime(device.lastSeenAt)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadReadings() {
+            try {
+                const readings = await apiRequest(`/devices/${deviceId}/readings?limit=10`);
+                renderReadings(readings);
+            } catch (error) {
+                console.error('Error loading readings:', error);
+            }
+        }
+
+        function renderReadings(readings) {
+            const container = document.getElementById('readingsList');
+            
+            if (readings.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No readings available</p>';
+                return;
+            }
+            
+            container.innerHTML = readings.map(reading => `
+                <div style="border-bottom: 1px solid var(--border-color); padding: 0.75rem 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 500;">${formatDateTime(reading.timestamp)}</span>
+                        ${reading.valveState ? getStatusBadge(reading.valveState) : ''}
+                    </div>
+                    <div class="text-muted" style="font-size: 0.875rem;">
+                        Flow: ${formatNumber(reading.flowRateLpm)} L/min • 
+                        Volume: ${formatNumber(reading.volumeLitersDelta)} L
+                        ${reading.batteryPct ? ` • Battery: ${reading.batteryPct}%` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadCommands() {
+            try {
+                const commands = await apiRequest(`/devices/${deviceId}/commands?limit=10`);
+                renderCommands(commands);
+            } catch (error) {
+                console.error('Error loading commands:', error);
+            }
+        }
+
+        function renderCommands(commands) {
+            const container = document.getElementById('commandsList');
+            
+            if (commands.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No commands sent</p>';
+                return;
+            }
+            
+            container.innerHTML = commands.map(cmd => `
+                <div style="border-bottom: 1px solid var(--border-color); padding: 0.75rem 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 500;">${cmd.type.replace(/_/g, ' ')}</span>
+                        ${getCommandStatusBadge(cmd.status)}
+                    </div>
+                    <div class="text-muted" style="font-size: 0.875rem;">
+                        ${formatDateTime(cmd.requestedAt)}
+                        ${cmd.failureReason ? `<br><span style="color: var(--danger-color);">${cmd.failureReason}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function sendCommand(commandType) {
+            try {
+                await apiRequest(`/devices/${deviceId}/commands`, {
+                    method: 'POST',
+                    body: JSON.stringify({ type: commandType, payload: {} })
+                });
+                showAlert('Command sent successfully', 'success');
+                await loadCommands();
+            } catch (error) {
+                showAlert('Failed to send command: ' + error.message, 'error');
+            }
+        }
+
+        function showSetFlowModal() {
+            document.getElementById('setFlowModal').classList.remove('hidden');
+            syncFlowControls();
+        }
+
+        function hideSetFlowModal() {
+            document.getElementById('setFlowModal').classList.add('hidden');
+        }
+
+        function syncFlowControls() {
+            const input = document.getElementById('flowRateInput');
+            const slider = document.getElementById('flowRateSlider');
+            
+            input.addEventListener('input', () => {
+                slider.value = input.value;
+            });
+            
+            slider.addEventListener('input', () => {
+                input.value = slider.value;
+            });
+        }
+
+        async function sendFlowCommand() {
+            const flowRate = document.getElementById('flowRateInput').value;
+            
+            try {
+                await apiRequest(`/devices/${deviceId}/commands`, {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        type: 'SET_FLOW_RATE', 
+                        payload: { target_flow_lpm: parseFloat(flowRate) }
+                    })
+                });
+                showAlert('Flow rate command sent successfully', 'success');
+                hideSetFlowModal();
+                await loadCommands();
+            } catch (error) {
+                showAlert('Failed to send command: ' + error.message, 'error');
+            }
+        }
+
+        // Load device on page load
+        if (deviceId) {
+            loadDevice();
+        } else {
+            showAlert('No device ID provided', 'error');
+        }
+    </script>
+</body>
+</html>

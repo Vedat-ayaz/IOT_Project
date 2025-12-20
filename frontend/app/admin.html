@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - WaterIoT</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/app/dashboard.html" class="logo">💧 WaterIoT</a>
+                <ul class="nav-links"></ul>
+            </nav>
+        </div>
+    </header>
+
+    <main style="padding: 2rem 0;">
+        <div class="container">
+            <h1 style="margin-bottom: 2rem;">Admin Panel</h1>
+
+            <!-- Tabs -->
+            <div style="border-bottom: 2px solid var(--border-color); margin-bottom: 2rem;">
+                <div style="display: flex; gap: 2rem;">
+                    <button class="tab-btn active" onclick="showTab('devices')" style="padding: 1rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500;">Devices</button>
+                    <button class="tab-btn" onclick="showTab('users')" style="padding: 1rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500;">Users</button>
+                    <button class="tab-btn" onclick="showTab('audit')" style="padding: 1rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500;">Audit Log</button>
+                </div>
+            </div>
+
+            <!-- Devices Tab -->
+            <div id="devicesTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>All Devices</span>
+                        <button class="btn btn-primary" onclick="showRegisterDeviceModal()">Register New Device</button>
+                    </div>
+                    <div id="devicesList"></div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="usersTab" class="tab-content hidden">
+                <div class="card">
+                    <div class="card-header">All Users</div>
+                    <div id="usersList"></div>
+                </div>
+            </div>
+
+            <!-- Audit Tab -->
+            <div id="auditTab" class="tab-content hidden">
+                <div class="card">
+                    <div class="card-header">Audit Log</div>
+                    <p class="text-muted">Recent administrative actions and system events</p>
+                    <div id="auditList">
+                        <p class="text-center text-muted">Audit log feature available in full implementation</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Register Device Modal -->
+    <div id="registerDeviceModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div class="card" style="max-width: 600px; width: 90%; margin: 0;">
+            <div class="card-header">Register New Device</div>
+            <form id="registerDeviceForm">
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Device UID *</label>
+                        <input type="text" id="deviceUid" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Device Name *</label>
+                        <input type="text" id="deviceName" class="form-control" required>
+                    </div>
+                </div>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Model</label>
+                        <input type="text" id="deviceModel" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location</label>
+                        <input type="text" id="deviceLocation" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Firmware Version</label>
+                    <input type="text" id="firmwareVersion" class="form-control">
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary">Register Device</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideRegisterDeviceModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 WaterIoT. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/js/app.js"></script>
+    <script>
+        // Check admin access
+        if (!auth.isAdmin()) {
+            showAlert('Access denied. Admin privileges required.', 'error');
+            setTimeout(() => window.location.href = '/app/dashboard.html', 2000);
+        }
+
+        let devices = [];
+        let users = [];
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.borderBottomColor = 'transparent';
+            });
+            
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            event.target.classList.add('active');
+            event.target.style.borderBottomColor = 'var(--primary-color)';
+            
+            if (tabName === 'devices') loadDevices();
+            if (tabName === 'users') loadUsers();
+        }
+
+        async function loadDevices() {
+            try {
+                devices = await apiRequest('/devices');
+                renderDevices();
+            } catch (error) {
+                console.error('Error loading devices:', error);
+            }
+        }
+
+        function renderDevices() {
+            const container = document.getElementById('devicesList');
+            
+            if (devices.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No devices registered</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>UID</th>
+                            <th>Name</th>
+                            <th>Owner</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${devices.map(device => `
+                            <tr>
+                                <td>${device.deviceUid}</td>
+                                <td>${device.name}</td>
+                                <td>${device.ownerName || '<span class="text-muted">Unassigned</span>'}</td>
+                                <td>${getStatusBadge(device.status)}</td>
+                                <td>
+                                    <button class="btn btn-small btn-primary" onclick="viewDevice(${device.id})">View</button>
+                                    ${!device.ownerId ? `<button class="btn btn-small btn-success" onclick="assignDevice(${device.id})">Assign</button>` : `<button class="btn btn-small btn-warning" onclick="unassignDevice(${device.id})">Unassign</button>`}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        async function loadUsers() {
+            try {
+                // In real implementation, add admin endpoint to list users
+                users = [];
+                renderUsers();
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function renderUsers() {
+            const container = document.getElementById('usersList');
+            container.innerHTML = '<p class="text-muted text-center">User management available in full implementation</p>';
+        }
+
+        function showRegisterDeviceModal() {
+            const modal = document.getElementById('registerDeviceModal');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+
+        function hideRegisterDeviceModal() {
+            const modal = document.getElementById('registerDeviceModal');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+            document.getElementById('registerDeviceForm').reset();
+        }
+
+        document.getElementById('registerDeviceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                deviceUid: document.getElementById('deviceUid').value,
+                name: document.getElementById('deviceName').value,
+                model: document.getElementById('deviceModel').value || null,
+                location: document.getElementById('deviceLocation').value || null,
+                firmwareVersion: document.getElementById('firmwareVersion').value || null
+            };
+            
+            try {
+                await apiRequest('/devices/register', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                showAlert('Device registered successfully', 'success');
+                hideRegisterDeviceModal();
+                await loadDevices();
+            } catch (error) {
+                showAlert('Failed to register device: ' + error.message, 'error');
+            }
+        });
+
+        async function assignDevice(deviceId) {
+            const userId = prompt('Enter user ID to assign device to:');
+            if (!userId) return;
+            
+            try {
+                await apiRequest(`/devices/${deviceId}/assign/${userId}`, { method: 'PUT' });
+                showAlert('Device assigned successfully', 'success');
+                await loadDevices();
+            } catch (error) {
+                showAlert('Failed to assign device: ' + error.message, 'error');
+            }
+        }
+
+        async function unassignDevice(deviceId) {
+            if (!confirm('Are you sure you want to unassign this device?')) return;
+            
+            try {
+                await apiRequest(`/devices/${deviceId}/unassign`, { method: 'PUT' });
+                showAlert('Device unassigned successfully', 'success');
+                await loadDevices();
+            } catch (error) {
+                showAlert('Failed to unassign device: ' + error.message, 'error');
+            }
+        }
+
+        function viewDevice(deviceId) {
+            window.location.href = `/app/device.html?id=${deviceId}`;
+        }
+
+        // Load initial tab
+        loadDevices();
+    </script>
+</body>
+</html>
