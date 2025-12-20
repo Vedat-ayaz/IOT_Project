@@ -11,9 +11,9 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenApiConfig {
-    
+
     @Bean
-    public OpenAPI waterIoTOpenAPI() {
+    OpenAPI waterIoTOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
                         .title("IoT Water Management System API")
