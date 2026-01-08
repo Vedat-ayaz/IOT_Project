@@ -105,14 +105,18 @@ function showAlert(message, type = 'info') {
 // Format date/time
 function formatDateTime(dateString) {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString();
+    // Backend UTC gönderiyor ama timezone bilgisi yok, Z ekleyerek UTC olduğunu belirtiyoruz
+    const dateWithTimezone = dateString.includes('Z') ? dateString : dateString + 'Z';
+    const date = new Date(dateWithTimezone);
+    return date.toLocaleString('tr-TR');
 }
 
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
+    // Backend UTC gönderiyor ama timezone bilgisi yok, Z ekleyerek UTC olduğunu belirtiyoruz
+    const dateWithTimezone = dateString.includes('Z') ? dateString : dateString + 'Z';
+    const date = new Date(dateWithTimezone);
+    return date.toLocaleDateString('tr-TR');
 }
 
 // Format numbers

@@ -38,10 +38,43 @@
                 </div>
             </div>
 
+            <!-- Sensor Data History -->
+            <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <span style="font-weight: 600;">📊 Sensor Data History (Raspberry Pi)</span>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: nowrap;">
+                        <select id="valveFilterSelect" onchange="applyFilters()" class="form-control" style="max-width: 140px; font-size: 13px; padding: 0.4rem 0.6rem;">
+                            <option value="all">🔍 All Valves</option>
+                            <option value="OPEN">✓ Open Only</option>
+                            <option value="CLOSED">✗ Closed Only</option>
+                            <option value="PARTIAL">◐ Partial Only</option>
+                        </select>
+                        <select id="limitSelect" onchange="loadReadings()" class="form-control" style="max-width: 100px; font-size: 13px; padding: 0.4rem 0.6rem;">
+                            <option value="20">Last 20</option>
+                            <option value="50">Last 50</option>
+                            <option value="100">Last 100</option>
+                            <option value="500">Last 500</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="loadReadings()" style="font-size: 13px; padding: 0.4rem 0.8rem;">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div id="filterInfo" style="padding: 0.75rem 1rem; background: #f8f9fa; border-bottom: 1px solid var(--border-color); display: none;"></div>
+                <div id="readingsTable" style="min-height: 100px;"></div>
+            </div>
+
+            <!-- ML Inference Events -->
+            <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600;">🤖 ML Fixture Detection Events</span>
+                    <button class="btn btn-secondary" onclick="loadInferences()" style="font-size: 13px; padding: 0.4rem 0.8rem;">🔄 Refresh</button>
+                </div>
+                <div id="inferencesTable" style="min-height: 100px;"></div>
+            </div>
+
             <div class="grid grid-2">
-                <!-- Recent Readings -->
+                <!-- Recent Readings Summary -->
                 <div class="card">
-                    <div class="card-header">Recent Readings</div>
+                    <div class="card-header">Recent Activity</div>
                     <div id="readingsList"></div>
                 </div>
 
@@ -55,9 +88,12 @@
     </main>
 
     <!-- Set Flow Modal -->
-    <div id="setFlowModal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+    <div id="setFlowModal" class="modal-overlay hidden">
         <div class="card" style="max-width: 400px; width: 90%; margin: 0;">
-            <div class="card-header">Set Flow Rate</div>
+            <div class="card-header">
+                Set Flow Rate
+                <button onclick="hideSetFlowModal()" style="float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">&times;</button>
+            </div>
             <div class="form-group">
                 <label class="form-label">Flow Rate (L/min)</label>
                 <input type="number" id="flowRateInput" class="form-control" step="0.1" min="0" max="20" value="5">
@@ -88,6 +124,7 @@
                 renderDeviceInfo();
                 
                 await loadReadings();
+                await loadInferences();
                 await loadCommands();
             } catch (error) {
                 console.error('Error loading device:', error);
@@ -122,20 +159,131 @@
             `;
         }
 
+        let allReadings = []; // Tüm verileri sakla
+
         async function loadReadings() {
+            const limit = document.getElementById('limitSelect')?.value || 20;
+            
             try {
-                const readings = await apiRequest(`/devices/${deviceId}/readings?limit=10`);
-                renderReadings(readings);
+                const readings = await apiRequest(`/devices/${deviceId}/readings?limit=${limit}`);
+                allReadings = readings; // Tüm verileri sakla
+                applyFilters(); // Filtreleri uygula
+                renderReadingsSummary(readings.slice(0, 5)); // Son 5 tane özet için
             } catch (error) {
                 console.error('Error loading readings:', error);
+                document.getElementById('readingsTable').innerHTML = 
+                    '<p class="text-center text-muted" style="padding: 2rem;">Failed to load readings</p>';
             }
         }
 
-        function renderReadings(readings) {
+        function applyFilters() {
+            const valveFilter = document.getElementById('valveFilterSelect')?.value || 'all';
+            
+            let filteredReadings = [...allReadings];
+            
+            // Valve filter uygula
+            if (valveFilter !== 'all') {
+                filteredReadings = filteredReadings.filter(r => r.valveState === valveFilter);
+            }
+            
+            // Filter bilgisini göster
+            updateFilterInfo(filteredReadings.length, allReadings.length, valveFilter);
+            
+            // Tabloyu render et
+            renderReadingsTable(filteredReadings);
+        }
+
+        function updateFilterInfo(filtered, total, valveFilter) {
+            const infoDiv = document.getElementById('filterInfo');
+            
+            if (valveFilter === 'all') {
+                infoDiv.style.display = 'none';
+            } else {
+                const filterLabels = {
+                    'OPEN': '✓ Open Valve',
+                    'CLOSED': '✗ Closed Valve',
+                    'PARTIAL': '◐ Partial Valve'
+                };
+                infoDiv.style.display = 'block';
+                infoDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>
+                            🔍 Filter active: <strong>${filterLabels[valveFilter]}</strong>
+                        </span>
+                        <span style="color: #666;">
+                            Showing ${filtered} of ${total} readings
+                            ${filtered === 0 ? '• <span style="color: var(--warning-color);">No data matches filter</span>' : ''}
+                        </span>
+                    </div>
+                `;
+            }
+        }
+
+        function renderReadingsTable(readings) {
+            const container = document.getElementById('readingsTable');
+            
+            if (readings.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center" style="padding: 2rem;">No data received from Raspberry Pi yet</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                        <thead>
+                            <tr style="background: var(--light-bg); border-bottom: 2px solid var(--border-color);">
+                                <th style="padding: 0.75rem; text-align: left;">#</th>
+                                <th style="padding: 0.75rem; text-align: left;">Timestamp</th>
+                                <th style="padding: 0.75rem; text-align: right;">Flow Rate</th>
+                                <th style="padding: 0.75rem; text-align: right;">Volume Δ</th>
+                                <th style="padding: 0.75rem; text-align: right;">Total Volume</th>
+                                <th style="padding: 0.75rem; text-align: center;">Valve</th>
+                                <th style="padding: 0.75rem; text-align: center;">Battery</th>
+                                <th style="padding: 0.75rem; text-align: center;">Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${readings.map((reading, index) => `
+                                <tr style="border-bottom: 1px solid var(--border-color); ${index % 2 === 0 ? 'background: #fafafa;' : ''}">
+                                    <td style="padding: 0.75rem; color: #666;">${readings.length - index}</td>
+                                    <td style="padding: 0.75rem;">
+                                        <div style="font-weight: 500;">${formatDate(reading.timestamp)}</div>
+                                        <div style="color: #666; font-size: 0.8rem;">${formatTime(reading.timestamp)}</div>
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: right; font-weight: 500; color: var(--primary-color);">
+                                        ${reading.flowRateLpm ? formatNumber(reading.flowRateLpm) + ' L/min' : '-'}
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: right;">
+                                        ${reading.volumeLitersDelta ? formatNumber(reading.volumeLitersDelta) + ' L' : '-'}
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: right; font-weight: 500;">
+                                        ${reading.volumeLitersTotal ? formatNumber(reading.volumeLitersTotal) + ' L' : '-'}
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        ${reading.valveState ? getValveBadge(reading.valveState) : '-'}
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        ${reading.batteryPct ? getBatteryDisplay(reading.batteryPct) : '-'}
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        ${reading.signalRssi ? getSignalDisplay(reading.signalRssi) : '-'}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding: 1rem; text-align: center; color: #666; font-size: 0.875rem; border-top: 1px solid var(--border-color); background: var(--light-bg);">
+                    Showing ${readings.length} readings • Last updated: ${new Date().toLocaleString()}
+                </div>
+            `;
+        }
+
+        function renderReadingsSummary(readings) {
             const container = document.getElementById('readingsList');
             
             if (readings.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center">No readings available</p>';
+                container.innerHTML = '<p class="text-muted text-center">No recent activity</p>';
                 return;
             }
             
@@ -146,12 +294,48 @@
                         ${reading.valveState ? getStatusBadge(reading.valveState) : ''}
                     </div>
                     <div class="text-muted" style="font-size: 0.875rem;">
-                        Flow: ${formatNumber(reading.flowRateLpm)} L/min • 
-                        Volume: ${formatNumber(reading.volumeLitersDelta)} L
+                        Flow: ${reading.flowRateLpm ? formatNumber(reading.flowRateLpm) + ' L/min' : '-'} • 
+                        Volume: ${reading.volumeLitersDelta ? formatNumber(reading.volumeLitersDelta) + ' L' : '-'}
                         ${reading.batteryPct ? ` • Battery: ${reading.batteryPct}%` : ''}
                     </div>
                 </div>
             `).join('');
+        }
+
+        function getValveBadge(state) {
+            const colors = {
+                'OPEN': 'success',
+                'CLOSED': 'danger',
+                'PARTIAL': 'warning'
+            };
+            return `<span class="badge badge-${colors[state] || 'secondary'}" style="font-size: 0.75rem;">${state}</span>`;
+        }
+
+        function getBatteryDisplay(pct) {
+            const color = pct > 50 ? '#22c55e' : pct > 20 ? '#f59e0b' : '#ef4444';
+            return `<span style="color: ${color}; font-weight: 500;">${pct}%</span>`;
+        }
+
+        function getSignalDisplay(rssi) {
+            const strength = rssi > -50 ? '📶' : rssi > -70 ? '📶' : '📡';
+            return `<span title="${rssi} dBm">${strength} ${rssi}</span>`;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            // Backend UTC gönderiyor ama Z eklemediği için local olarak algılanıyor
+            // UTC olduğunu belirtmek için Z ekliyoruz
+            const dateWithTimezone = dateString.includes('Z') ? dateString : dateString + 'Z';
+            const date = new Date(dateWithTimezone);
+            return date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatTime(dateString) {
+            if (!dateString) return '-';
+            // Backend UTC gönderiyor ama Z eklemediği için local olarak algılanıyor
+            const dateWithTimezone = dateString.includes('Z') ? dateString : dateString + 'Z';
+            const date = new Date(dateWithTimezone);
+            return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
         async function loadCommands() {
@@ -161,6 +345,107 @@
             } catch (error) {
                 console.error('Error loading commands:', error);
             }
+        }
+
+        async function loadInferences() {
+            try {
+                const inferences = await apiRequest(`/devices/${deviceId}/inferences?limit=50`);
+                renderInferences(inferences);
+            } catch (error) {
+                console.error('Error loading inferences:', error);
+                document.getElementById('inferencesTable').innerHTML = 
+                    '<p class="text-center text-muted" style="padding: 2rem;">Failed to load ML events</p>';
+            }
+        }
+
+        function renderInferences(inferences) {
+            const container = document.getElementById('inferencesTable');
+            
+            if (!inferences || inferences.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted" style="padding: 2rem;">No ML events detected yet</p>';
+                return;
+            }
+
+            // Fixture → Room mapping
+            const fixtureToRoom = {
+                'KitchenFaucet': '🍳 Mutfak Musluğu',
+                'Toilet': '🚽 Tuvalet',
+                'Shower': '🚿 Duş',
+                'Bathtub': '🛁 Küvet',
+                'BathroomFaucet': '🚰 Banyo Lavabo',
+                'WashingMachine': '👕 Çamaşır Makinesi',
+                'Dishwasher': '🍽️ Bulaşık Makinesi',
+                'GardenHose': '🌱 Bahçe Hortumu'
+            };
+
+            container.innerHTML = `
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th style="padding: 0.75rem; text-align: left;">Event Time</th>
+                                <th style="padding: 0.75rem; text-align: center;">Fixture / Room</th>
+                                <th style="padding: 0.75rem; text-align: center;">Duration</th>
+                                <th style="padding: 0.75rem; text-align: center;">Water Used</th>
+                                <th style="padding: 0.75rem; text-align: center;">Avg Flow</th>
+                                <th style="padding: 0.75rem; text-align: center;">Confidence</th>
+                                <th style="padding: 0.75rem; text-align: center;">Control</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${inferences.map(inf => `
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 0.75rem;">
+                                        <div style="font-weight: 500;">${formatDate(inf.eventStartTs)}</div>
+                                        <div style="font-size: 0.875rem; color: #666;">${formatTime(inf.eventStartTs)}</div>
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        <div style="font-weight: 600; color: #6366f1;">
+                                            ${fixtureToRoom[inf.predictedFixture] || inf.predictedFixture}
+                                        </div>
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        ${formatNumber(inf.durationSec)} s
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center; font-weight: 600; color: #3b82f6;">
+                                        ${formatNumber(inf.liters)} L
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        ${formatNumber(inf.meanFlowLpm)} L/min
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        ${getConfidenceBadge(inf.confidence)}
+                                    </td>
+                                    <td style="padding: 0.75rem; text-align: center;">
+                                        <span style="padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; background: #f0fdf4; color: #166534; font-weight: 500;">
+                                            ${inf.controlProfile || 'N/A'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding: 1rem; text-align: center; color: #666; font-size: 0.875rem; border-top: 1px solid var(--border-color); background: var(--light-bg);">
+                    Showing ${inferences.length} ML detection events
+                </div>
+            `;
+        }
+
+        function getConfidenceBadge(confidence) {
+            const pct = (confidence * 100).toFixed(1);
+            let color = '#166534'; // green
+            let bg = '#f0fdf4';
+            
+            if (confidence < 0.6) {
+                color = '#991b1b'; // red
+                bg = '#fef2f2';
+            } else if (confidence < 0.8) {
+                color = '#92400e'; // yellow
+                bg = '#fffbeb';
+            }
+            
+            return `<span style="padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; background: ${bg}; color: ${color}; font-weight: 600;">${pct}%</span>`;
         }
 
         function renderCommands(commands) {

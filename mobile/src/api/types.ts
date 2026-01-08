@@ -74,7 +74,7 @@ export interface SignupRequest {
   name: string;
   surname: string;
   email: string;
-  phone?: string;
+  phoneNumber?: string;
   password: string;
 }
 

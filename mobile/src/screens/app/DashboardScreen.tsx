@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Platform } from 'react-native';
 import { Text, FAB } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { devicesApi } from '../../api/devices';
 import { readingsApi } from '../../api/readings';
@@ -82,22 +83,36 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={[theme.colors.gradientStart, theme.colors.gradientEnd]}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={styles.headerTitle}>Dashboard</Text>
+        <Text style={styles.headerSubtitle}>Water Management Overview</Text>
+      </LinearGradient>
+
       <ScrollView
         style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} />
         }
       >
         <View style={styles.kpiContainer}>
+          <Text style={styles.sectionTitleTop}>Water Usage Statistics</Text>
           <View style={styles.kpiRow}>
             <KPIWidget
-              title="Today"
+              title="Today's Usage"
               value={formatLiters(aggregated?.todayLiters || 0)}
+              icon="💧"
               color={theme.colors.primary}
             />
             <KPIWidget
               title="This Week"
               value={formatLiters(aggregated?.weekLiters || 0)}
+              icon="📊"
               color={theme.colors.secondary}
             />
           </View>
@@ -105,18 +120,27 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
             <KPIWidget
               title="Active Devices"
               value={aggregated?.activeDevicesCount || 0}
+              icon="✅"
               color={theme.colors.success}
             />
             <KPIWidget
               title="Alerts"
               value={unreadAlerts.length}
+              icon="⚠️"
               color={theme.colors.warning}
             />
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Devices</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>💧 My Devices</Text>
+            {devices && devices.length > 3 && (
+              <TouchableOpacity onPress={() => navigation.navigate('Devices')}>
+                <Text style={styles.viewAllLink}>View All →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           {activeDevices.slice(0, 3).map((device) => (
             <DeviceCard
               key={device.id}
@@ -125,14 +149,6 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
               onQuickAction={(action) => handleQuickAction(device.id, device.name, action)}
             />
           ))}
-          {devices && devices.length > 3 && (
-            <Text
-              style={styles.viewAll}
-              onPress={() => navigation.navigate('Devices')}
-            >
-              View All Devices →
-            </Text>
-          )}
         </View>
       </ScrollView>
 
@@ -150,32 +166,91 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   scroll: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 80,
+  },
   kpiContainer: {
-    padding: theme.spacing.md,
+    padding: 20,
+  },
+  sectionTitleTop: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 16,
+    marginLeft: 4,
   },
   kpiRow: {
     flexDirection: 'row',
-    marginHorizontal: -theme.spacing.xs,
+    marginHorizontal: -6,
+    marginBottom: 12,
   },
   section: {
-    padding: theme.spacing.md,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: theme.colors.text,
-    marginBottom: theme.spacing.md,
   },
-  viewAll: {
+  viewAllLink: {
     fontSize: 14,
-    color: theme.colors.primary,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
     fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: theme.colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Text, Card, IconButton } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Device } from '../api/types';
 import { StatusBadge } from './StatusBadge';
 import { formatDateRelative } from '../utils/date';
@@ -13,92 +14,199 @@ interface DeviceCardProps {
 }
 
 export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, onQuickAction }) => {
+  const statusColor = device.status === 'ACTIVE' ? theme.colors.success : 
+                     device.status === 'INACTIVE' ? theme.colors.textSecondary : 
+                     theme.colors.error;
+  
   return (
-    <Card style={styles.card} onPress={onPress}>
-      <Card.Content>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.name}>{device.name}</Text>
-            {device.location && (
-              <Text style={styles.location}>{device.location}</Text>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+      <LinearGradient
+        colors={['#FFFFFF', '#F8FAFC']}
+        style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+      >
+        <View style={[styles.statusBar, { backgroundColor: statusColor }]} />
+        
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.deviceIcon}>
+                <Text style={styles.deviceEmoji}>💧</Text>
+              </View>
+              <View style={styles.headerText}>
+                <Text style={styles.name}>{device.name}</Text>
+                {device.location && (
+                  <Text style={styles.location}>📍 {device.location}</Text>
+                )}
+              </View>
+            </View>
+            <StatusBadge status={device.status} />
+          </View>
+
+          <View style={styles.details}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Device ID:</Text>
+              <Text style={styles.detailValue}>{device.deviceUid}</Text>
+            </View>
+            {device.lastSeenAt && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Last Active:</Text>
+                <Text style={styles.detailValue}>{formatDateRelative(device.lastSeenAt)}</Text>
+              </View>
             )}
           </View>
-          <StatusBadge status={device.status} />
-        </View>
 
-        <View style={styles.details}>
-          <Text style={styles.detailText}>
-            UID: {device.deviceUid}
-          </Text>
-          {device.lastSeenAt && (
-            <Text style={styles.detailText}>
-              Last seen: {formatDateRelative(device.lastSeenAt)}
-            </Text>
+          {onQuickAction && (
+            <View style={styles.actions}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.openButton]}
+                onPress={() => onQuickAction('OPEN')}
+              >
+                <Text style={styles.actionIcon}>🔓</Text>
+                <Text style={styles.actionText}>Open</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.closeButton]}
+                onPress={() => onQuickAction('CLOSE')}
+              >
+                <Text style={styles.actionIcon}>🔒</Text>
+                <Text style={styles.actionText}>Close</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.shutOffButton]}
+                onPress={() => onQuickAction('SHUT_OFF')}
+              >
+                <Text style={styles.actionIcon}>⛔</Text>
+                <Text style={styles.actionText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
-
-        {onQuickAction && (
-          <View style={styles.actions}>
-            <IconButton
-              icon="valve-open"
-              size={20}
-              iconColor={theme.colors.success}
-              onPress={() => onQuickAction('OPEN')}
-            />
-            <IconButton
-              icon="valve-closed"
-              size={20}
-              iconColor={theme.colors.error}
-              onPress={() => onQuickAction('CLOSE')}
-            />
-            <IconButton
-              icon="stop-circle"
-              size={20}
-              iconColor={theme.colors.error}
-              onPress={() => onQuickAction('SHUT_OFF')}
-            />
-          </View>
-        )}
-      </Card.Content>
-    </Card>
+      </LinearGradient>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    marginBottom: theme.spacing.md,
-    ...theme.shadows.small,
+  container: {
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  gradient: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  statusBar: {
+    height: 4,
+    width: '100%',
+  },
+  content: {
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 12,
   },
   headerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deviceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  deviceEmoji: {
+    fontSize: 24,
+  },
+  headerText: {
     flex: 1,
   },
   name: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: theme.colors.text,
     marginBottom: 4,
   },
   location: {
-    fontSize: 14,
+    fontSize: 13,
     color: theme.colors.textSecondary,
   },
   details: {
-    marginTop: theme.spacing.sm,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
-  detailText: {
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  detailLabel: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    marginBottom: 2,
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 13,
+    color: theme.colors.text,
+    fontWeight: '600',
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: theme.spacing.sm,
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  openButton: {
+    backgroundColor: `${theme.colors.success}15`,
+  },
+  closeButton: {
+    backgroundColor: `${theme.colors.warning}15`,
+  },
+  shutOffButton: {
+    backgroundColor: `${theme.colors.error}15`,
+  },
+  actionIcon: {
+    fontSize: 18,
+  },
+  actionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
 });

@@ -39,7 +39,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/telemetry/**").permitAll() // Device authentication handled separately
+                .requestMatchers(HttpMethod.POST, "/api/telemetry").permitAll() // Device authentication handled separately
+                .requestMatchers(HttpMethod.POST, "/api/inferences").permitAll() // ML inference events from device
                 .requestMatchers("/api/device/commands/**").permitAll() // Device authentication handled separately
                 .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/actuator/**").permitAll()

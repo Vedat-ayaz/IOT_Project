@@ -33,7 +33,20 @@ mvnw.cmd
 # Database
 *.db
 *.sqlite
+db_data/
+
+# Docker
+.docker/
 
 # Node (if using any JS tools)
 node_modules/
 .expo/
+
+# Build artifacts
+backend/target/
+*.jar.original
+
+# Sensitive data
+*.pem
+*.key
+!src/**/*.key

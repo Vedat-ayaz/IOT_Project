@@ -33,9 +33,9 @@
                     <div class="text-muted" style="font-size: 0.875rem;">Liters</div>
                 </div>
                 <div class="card">
-                    <div class="text-muted" style="font-size: 0.875rem;">This Week</div>
-                    <div style="font-size: 2rem; font-weight: bold; color: var(--success-color);" id="weekUsage">-</div>
-                    <div class="text-muted" style="font-size: 0.875rem;">Liters</div>
+                    <div class="text-muted" style="font-size: 0.875rem;">ML Events Today</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #6366f1;" id="todayEvents">-</div>
+                    <div class="text-muted" style="font-size: 0.875rem;">Detections</div>
                 </div>
                 <div class="card">
                     <div class="text-muted" style="font-size: 0.875rem;">Active Devices</div>
@@ -47,6 +47,12 @@
                     <div style="font-size: 2rem; font-weight: bold; color: var(--warning-color);" id="unreadAlerts">-</div>
                     <div class="text-muted" style="font-size: 0.875rem;">Alerts</div>
                 </div>
+            </div>
+
+            <!-- ML Fixture Usage Today -->
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-header">🤖 Today's Water Usage by Fixture (ML Detection)</div>
+                <div id="fixtureUsageChart" style="min-height: 200px;"></div>
             </div>
 
             <div class="grid grid-2">
@@ -185,6 +191,7 @@
             let totalToday = 0;
             let totalWeek = 0;
             let activeCount = 0;
+            let todayMLEvents = 0;
             
             for (const device of devices) {
                 if (device.status === 'ACTIVE') activeCount++;
@@ -195,14 +202,93 @@
                     
                     const weekData = await apiRequest(`/devices/${device.id}/consumption?from=${weekStart}&to=${nowStr}`);
                     totalWeek += parseFloat(weekData.totalLiters || 0);
+
+                    // ML events bugün
+                    try {
+                        const inferences = await apiRequest(`/devices/${device.id}/inferences?from=${todayStart}&to=${nowStr}`);
+                        todayMLEvents += inferences.length;
+                    } catch (e) {
+                        console.log('No ML events for device', device.id);
+                    }
                 } catch (e) {
                     console.error('Error fetching consumption for device', device.id, e);
                 }
             }
             
             document.getElementById('todayUsage').textContent = totalToday.toFixed(1);
-            document.getElementById('weekUsage').textContent = totalWeek.toFixed(1);
+            document.getElementById('todayEvents').textContent = todayMLEvents;
             document.getElementById('activeDevices').textContent = activeCount;
+
+            // Fixture usage chart yükle
+            await loadFixtureUsage();
+        }
+
+        async function loadFixtureUsage() {
+            const container = document.getElementById('fixtureUsageChart');
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayStartStr = todayStart.toISOString();
+            const nowStr = new Date().toISOString();
+
+            const fixtureToRoom = {
+                'KitchenFaucet': '🍳 Mutfak',
+                'Toilet': '🚽 Tuvalet',
+                'Shower': '🚿 Duş',
+                'Bathtub': '🛁 Küvet',
+                'BathroomFaucet': '🚰 Banyo Lavabo',
+                'WashingMachine': '👕 Çamaşır Mak.',
+                'Dishwasher': '🍽️ Bulaşık Mak.',
+                'GardenHose': '🌱 Bahçe'
+            };
+
+            let allInferences = [];
+
+            for (const device of devices) {
+                try {
+                    const inferences = await apiRequest(`/devices/${device.id}/inferences?from=${todayStartStr}&to=${nowStr}`);
+                    allInferences = allInferences.concat(inferences);
+                } catch (e) {
+                    console.log('No inferences for device', device.id);
+                }
+            }
+
+            if (allInferences.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted" style="padding: 2rem;">No ML detection events today</p>';
+                return;
+            }
+
+            // Fixture'a göre grupla
+            const fixtureStats = {};
+            allInferences.forEach(inf => {
+                const fixture = inf.predictedFixture;
+                if (!fixtureStats[fixture]) {
+                    fixtureStats[fixture] = { count: 0, liters: 0 };
+                }
+                fixtureStats[fixture].count++;
+                fixtureStats[fixture].liters += parseFloat(inf.liters || 0);
+            });
+
+            // Litroya göre sırala
+            const sorted = Object.entries(fixtureStats).sort((a, b) => b[1].liters - a[1].liters);
+
+            container.innerHTML = `
+                <div style="padding: 1rem;">
+                    ${sorted.map(([fixture, stats]) => {
+                        const pct = (stats.liters / allInferences.reduce((sum, inf) => sum + parseFloat(inf.liters || 0), 0) * 100).toFixed(1);
+                        return `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="font-weight: 600;">${fixtureToRoom[fixture] || fixture}</span>
+                                    <span style="color: #666;">${stats.liters.toFixed(1)} L (${pct}%) • ${stats.count} events</span>
+                                </div>
+                                <div style="background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden;">
+                                    <div style="background: #6366f1; height: 100%; width: ${pct}%;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
 
         function renderDevices() {
