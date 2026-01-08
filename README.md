@@ -593,13 +593,7 @@ docker-compose -f docker-compose.prod.yml up -d
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
----
 
-## 📝 License
-
-This project is licensed under the MIT License.
-
----
 
 ## 👥 Authors
 
@@ -1022,10 +1016,6 @@ mysql -u water_admin -p water_iot_db
 - Verify `deviceUid` and `apiKey` match database
 - Check device status is ACTIVE
 - Review backend logs
-
-## 📝 License
-
-Copyright © 2024 WaterIoT. All rights reserved.
 
 ## 🤝 Support
 
