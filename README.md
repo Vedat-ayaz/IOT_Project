@@ -102,11 +102,6 @@ docker-compose logs -f app
 - 🚀 Nginx web server
 - 📱 Responsive design (mobile-friendly)
 
-**Mobile App:**
-- 📱 React Native + Expo
-- 🎨 TypeScript
-- 🔄 Real-time device monitoring
-
 **IoT/Raspberry Pi:**
 - 🐍 Python 3
 - 📡 MQTT → HTTP bridge
@@ -345,13 +340,6 @@ npx serve -p 3000
 # Frontend will be available at http://localhost:3000
 ```
 
-**4. Mobile App (Optional):**
-```bash
-cd mobile
-npm install
-expo start
-```
-
 ---
 
 ## 📸 Screenshots & Features
@@ -503,15 +491,6 @@ capstone/
 │       ├── app.js            # Main application logic
 │       └── home-animations.js # Landing page animations
 │
-├── mobile/                    # React Native mobile app
-│   ├── src/
-│   │   ├── screens/          # App screens
-│   │   ├── components/       # Reusable components
-│   │   ├── api/              # API client
-│   │   ├── auth/             # Auth context
-│   │   └── theme/            # Theme configuration
-│   └── package.json
-│
 ├── nginx/                     # Nginx configuration
 │   └── nginx.conf
 │
@@ -607,7 +586,6 @@ docker-compose -f docker-compose.prod.yml up -d
 - Spring Boot community
 - MySQL team
 - Docker & containerization ecosystem
-- React Native & Expo teams
 - Scikit-learn for ML capabilities
 
 ---
@@ -616,7 +594,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 For issues and questions:
 - 🐛 Issues: https://github.com/Vedat-ayaz/IOT_Project/issues
-- 📧 Email: [Your contact email]
+- 📧 Email: [vedat.ayaz@agu.edu.tr]
 - 💬 Discussions: GitHub Discussions
 
 ---
