@@ -1,3 +1,10 @@
+Project Group = 7
+Group Member = Vedat AYAZ, Erdem MUSLU , Semih IŞIK , Mustafa ERGUT
+
+Video + Report
+Drive link = https://drive.google.com/drive/folders/1-m84p4RzNOEDAufKRSz_tOCywQ8khbOv
+
+
 # 🌊 IoT Water Management System with ML Fixture Detection
 
 A comprehensive IoT-based water monitoring and control system with **Machine Learning-powered fixture detection**. Built with Spring Boot 3, MySQL 8, and real-time ML inference for intelligent water usage analysis.
